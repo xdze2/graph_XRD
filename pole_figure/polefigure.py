@@ -8,10 +8,8 @@ import matplotlib.pylab as plt
 import cristallo as cr
 
 # # Figure de pôle
-#
 # - export (convert) data as a single .csv file
 
-# ## Load the data
 
 # ====================
 #  Pole Figure Graph
@@ -52,10 +50,41 @@ def polar_axis(fig=None, figsize=(6, 6)):
     return fig, ax
 
 
+def plot_polefigure(phi_deg, psi_deg, intensity,
+                    title=None, show_max=True, unit='cps',
+                    figsize=(6, 6),
+                    cmap='YlOrRd'):
+    """polar heat-map graph of intensity"""
+    
+    # Change unit for the axis
+    phi_rad, psi_stereo = stereographic_projection(phi_deg, psi_deg)
+
+    # Create the figure and axis
+    fig, ax = polar_axis(figsize=figsize)
+    m = ax.pcolormesh(phi_rad, psi_stereo, intensity, cmap=cmap)
+    ax.grid(True, alpha=0.4, color='black')
+    #fig.colorbar(m)#, cax=cax
+
+    if show_max:
+        ax.text(0.01, 0.01, f'I_max={np.max(intensity)}{unit}',
+                    transform=ax.transAxes,
+                    fontfamily='monospace',
+                    verticalalignment='top')
+
+    if title:
+        ax.set_title(title);
+
+    return fig, ax
+
+
+# =====================
+#  Annotation methods
+# =====================
+
 def plot_direction(ax, phi_deg, psi_deg, 
                    color='black', marker='d', markersize=3,
-                   label=None, label_position='right', text_bold=False):
-    """Plot a point for the corresponding direction"""
+                   label=None, label_position='right', weight='normal'):
+    """Plot a point for the corresponding (phi, psi) direction"""
     phi_rad = phi_deg*np.pi/180 + 0.001
     psi_stereo = 2*np.tan(psi_deg*np.pi/180 /2)  #  Stereographic projection
     psi_stereo_annotate = psi_stereo if psi_stereo > 0.1 else 0.1   # Bug... ?
@@ -63,14 +92,38 @@ def plot_direction(ax, phi_deg, psi_deg,
     if label:
         va = 'center' if label_position == 'right' else 'baseline'
         ha = 'center' if label_position == 'center' else 'left'
-        weight = 'bold 'if text_bold else 'normal'
-
+        
         ax.annotate(label, (phi_rad, psi_stereo_annotate),
                     textcoords='offset points', xytext=(0, 5),
                     rotation=0, alpha=0.9, color=color, family='sans-serif',
                     horizontalalignment=ha, va=va, weight=weight)
 
     ax.plot(phi_rad, psi_stereo, marker, color=color, markersize=markersize)
+
+
+def plot_many_directions(ax, angles, 
+                         color='black', marker='d', markersize=3,
+                         label=None, label_position='right', weight='normal'):
+    """Loop around `plot_direction`
+
+    Parameters
+    ----------
+    ax : figure axes object
+    angles : list of dictionary {'phi':..., 'psi':..., 'hkl':...}
+        list of directions
+    color : str, by default 'black'
+    marker : str, by default 'd'
+    markersize : int, by default 3
+    label : str,  by default None
+    label_position : str, by default 'right'
+    weight : bool, by default normal
+    """
+    for d in angles:
+        if d['psi']>90:
+            continue
+        plot_direction(ax, d['phi'], d['psi'], label=d['hkl'],
+                       color=color, marker=marker, markersize=markersize,
+                       label_position=label_position, weight=weight)
 
 
 def hkl_tuple_to_str(hkl):
@@ -99,14 +152,25 @@ def list_eq_directions(hkl_figure, phi0, n):
     eq_directions = []
     for hkl_eq in cr.equivalent_directions(hkl_figure):
         phi, psi = cr.phi_psi_angles(hkl_eq, phi0, n)
-        if psi <= 90:
-            d = {'hkl': hkl_tuple_to_str(hkl_eq),
-                 'phi': phi,
-                 'psi': psi}
-            eq_directions.append(d)
+        #if psi <= 90:
+        d = {'hkl': hkl_tuple_to_str(hkl_eq),
+                'phi': phi,
+                'psi': psi}
+        eq_directions.append(d)
 
     return eq_directions
 
+
+def stereographic_projection(phi_degree, psi_degree):
+    """stereographic projection for the PSI angle
+        and conversion to radian for the phi angle
+        i.e. unit for the matplotlib polar axis
+    """
+    psi_rad = psi_degree *np.pi/180
+    psi_stereo = 2*np.tan(psi_rad/2)
+
+    phi_rad = phi_degree *np.pi/180
+    return phi_rad, psi_stereo
 
 
 # ==================
@@ -116,6 +180,8 @@ def list_eq_directions(hkl_figure, phi0, n):
 def get_field(csvpath, fieldname, to_float=True):
     '''Extract information from csv file
     (path to the file) for the asked fieldname
+
+    returns a list
     '''
 
     with open(csvpath, 'r') as f:
@@ -135,8 +201,22 @@ def open_range(start, stop, step):
     return np.arange(start, stop+step/2, step)
 
 
-def read_polefig_csv(file_path):
+def read_polefig_csv(file_path, norm_intensity=True):
+    """Import csv file
 
+    Parameters
+    ----------
+    file_path : string
+        [description]
+    norm_intensity : bool, default True
+        search for "Time per step" value in the csv file (in seconds)
+        and norm intensity value to obtain count per second values (cps) 
+
+    Returns
+    -------
+    [type]
+        [description]
+    """    
     # Try to get the number of header line:
     with open(file_path, 'r') as f:
         csv = f.readlines()
@@ -146,7 +226,7 @@ def read_polefig_csv(file_path):
             break
 
     # Load data
-    data = np.genfromtxt(file_path,
+    intensity = np.genfromtxt(file_path,
                          skip_header=k+1, delimiter=',')
 
     # Define axis range
@@ -158,7 +238,12 @@ def read_polefig_csv(file_path):
 
     # duplicate first line at the end
     #  used to close white gap in polar graph
-    data = np.vstack([data, data[0, :]]).T
+    intensity = np.vstack([intensity, intensity[0, :]]).T
 
-    return phi_span_deg, psi_span_deg, data
+    # norm intensity  counts--> counts per seconds
+    if norm_intensity:
+        time_per_step =  get_field(file_path, 'Time per step')[0]
+        intensity = intensity / np.float(time_per_step)
+
+    return phi_span_deg, psi_span_deg, intensity
 

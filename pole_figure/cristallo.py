@@ -134,14 +134,15 @@ def phi_psi_angles(u, phi0, n):
     return phi, psi
 
 
-def rodrigues_rotation(v, k, theta):
+def rodrigues_rotation(v, k_axe, theta):
     ''' Generic rotation using the Rodrigues' rotation formula
          https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
         v: the vector to rotate
         k: the axis of rotation (normed before computation)
         theta: angle of rotation in radian
     '''
-
+    k = k_axe
+    
     v, k = np.asarray(v), np.asarray(k)
     k = k / np.linalg.norm(k)
 
