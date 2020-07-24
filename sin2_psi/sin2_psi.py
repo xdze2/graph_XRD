@@ -118,13 +118,16 @@ print(', '.join(measure_list))
 #plt.legend()
 #plt.title(measure_list[0]);
 #plt.xlabel('two theta (deg)');
+# -
+
+i=-1
 
 # +
 # ========== 
 #  sin2 psi
 # ==========
-
-filename = measure_list[3]
+i += 1
+filename = measure_list[i]
 twoth_span, psi_span, phi_span, I = file_path = read_sin2psi(filename)
 
 fit_results = fit_all(twoth_span, psi_span, phi_span, I)
@@ -154,7 +157,7 @@ for phi, d_hlk_phi in zip(phi_span, d_hlk.T):
 plt.legend()
 plt.title(image_name.replace('csv', '').strip('.'));
 plt.xlabel('sin2(psi)'); plt.ylabel('d_hkl (Å)');
-
+plt.tight_layout();
 outputdir = 'output'
 
 image_name = image_name.replace('csv', 'svg')
