@@ -63,10 +63,13 @@ def plot_polefigure(phi_deg, psi_deg, intensity,
     fig, ax = polar_axis(figsize=figsize)
     m = ax.pcolormesh(phi_rad, psi_stereo, intensity, cmap=cmap)
     ax.grid(True, alpha=0.4, color='black')
-    #fig.colorbar(m)#, cax=cax
-
+    cbar = fig.colorbar(m, shrink=0.7, pad=0.07, aspect=35)
+    if unit:
+        cbar.ax.get_yaxis().labelpad = 15
+        cbar.ax.set_ylabel(unit, rotation=270)
+    
     if show_max:
-        ax.text(0.01, 0.01, f'I_max={np.max(intensity)}{unit}',
+        ax.text(0.01, 0.01, f'I_max={np.max(intensity):.0f}{unit}',
                     transform=ax.transAxes,
                     fontfamily='monospace',
                     verticalalignment='top')
@@ -102,7 +105,7 @@ def plot_direction(ax, phi_deg, psi_deg,
 
 
 def plot_many_directions(ax, angles, 
-                         color='black', marker='d', markersize=3,
+                         color='black', marker='d', markersize=3, 
                          label=None, label_position='right', weight='normal'):
     """Loop around `plot_direction`
 
@@ -121,7 +124,15 @@ def plot_many_directions(ax, angles,
     for d in angles:
         if d['psi']>90:
             continue
-        plot_direction(ax, d['phi'], d['psi'], label=d['hkl'],
+        
+        if label == True:
+            text = d['hkl']
+        elif isinstance(label, str):
+            text = label
+        else:
+            text = None
+            
+        plot_direction(ax, d['phi'], d['psi'], label=text,
                        color=color, marker=marker, markersize=markersize,
                        label_position=label_position, weight=weight)
 
