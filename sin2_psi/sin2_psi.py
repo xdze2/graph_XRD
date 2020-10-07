@@ -78,7 +78,7 @@ def fit_all(twoth_span, psi_span, phi_span, intensities,
             # Graph
             if graph:
                 color = colors[k % len(colors)]
-                plt.plot(twoth_span, y, '.', label=psi, 
+                plt.plot(twoth_span, y, '.', label=psi_k, 
                           alpha=0.5, color=color)
                 
             try:
@@ -94,17 +94,17 @@ def fit_all(twoth_span, psi_span, phi_span, intensities,
 
             except RuntimeError:
                 print(f'fit error for {phi_idx}, {psi_k}')
-                
-
 
         if graph:
             plt.text(twoth_span.min(),
                      0.9*intensities[:, :, phi_idx].max(),
                      f'phi={phi_span[phi_idx]} deg')
-            plt.title(measure_list[0]);
+            #plt.title(measure_list[0]);
             plt.xlabel('two theta (deg)');
 
     return fit_results
+
+
 # -
 
 # List data files:
@@ -120,43 +120,69 @@ print(', '.join(measure_list))
 #plt.xlabel('two theta (deg)');
 # -
 
-i=-1
+# d0 = {Cu:3.615 Å, Nb:3.3063 Å}
+
+# $$
+# \varepsilon_{\psi} = \varepsilon_{⟂} + (\varepsilon_{⫽}-\varepsilon_{⟂})\sin^2 \psi
+# $$
+
+d0_mat = {'Cu':3.615, 'Nb':3.3063}
+
+i = 0  # used to selec the filename
 
 # +
 # ========== 
 #  sin2 psi
 # ==========
-i += 1
-filename = measure_list[i]
-twoth_span, psi_span, phi_span, I = file_path = read_sin2psi(filename)
 
-fit_results = fit_all(twoth_span, psi_span, phi_span, I)
+filename = measure_list[i]
+print('file:', filename)
 
 image_name = os.path.basename(filename)
+measure_name = image_name.replace('csv', '').strip('.')
 
-plt.figure();
+a0 = [a for n, a in d0_mat.items() if n in filename][0]
+print('a0 (A):', a0)
+hkl = np.array( [float(u) for u in measure_name[-3:]] )
+d0 = a0/np.sqrt(np.sum(hkl**2))
+
+print('hkl:', hkl)
+print('d0 (A):', d0)
+twoth_span, psi_span, phi_span, I = file_path = read_sin2psi(filename)
+
+fit_results = fit_all(twoth_span, psi_span, phi_span, I, graph=True)
+
+
+
+plt.figure(figsize=(8, 4));
 k = 0
 d_hlk = distance_from_Bragg(fit_results['x0'])
 sin2psi = np.sin(psi_span *np.pi/180)**2
 for phi, d_hlk_phi in zip(phi_span, d_hlk.T):
     
     # linear fit:
-    a, b = np.polyfit(sin2psi, d_hlk_phi, 1)
-    eps_percent = a/b*100
-    print(f'phi={phi:>3.0f}°', '-->',f'eps_phi≃{eps_percent:.6f}%')
+    
+    eps_phi = (d_hlk_phi - d0)/d0
+    mask = np.logical_not(np.isnan(eps_phi))
+    slope, intercept = np.polyfit(sin2psi[mask], 100*eps_phi[mask], 1)
+    
+    eps_normal = intercept
+    eps_plan = slope + intercept
+
+    print(f'phi={phi:3.0f}°', '-->',f'eps_N≃{eps_normal:.6f}%', f'eps_T≃{eps_plan:.6f}%')
     
     # graph
     color = colors[k % len(colors)]
     k += 1
-    plt.plot(sin2psi, d_hlk_phi,
-             label=f'$\phi$={phi:.0f}°   $\epsilon_\phi$≃{eps_percent:.3f}%',
+    plt.plot(sin2psi, 100*eps_phi, '-', 
+             label=f'$\phi$={phi:4.0f}° eps_N≃{eps_normal:.3f}% eps_T≃{eps_plan:.3f}%',
              color=color);
-    plt.plot(sin2psi, a*sin2psi + b, 'k:', color=color)
+    plt.plot(sin2psi, (slope*sin2psi + intercept), 'k:', color=color)
     
     
 plt.legend()
-plt.title(image_name.replace('csv', '').strip('.'));
-plt.xlabel('sin2(psi)'); plt.ylabel('d_hkl (Å)');
+plt.title(measure_name + f'  a={a0:.3f}Å');
+plt.xlabel('sin2(psi)'); plt.ylabel('eps_phi (%)');
 plt.tight_layout();
 outputdir = 'output'
 
@@ -164,8 +190,9 @@ image_name = image_name.replace('csv', 'svg')
 image_path = os.path.join(outputdir, image_name)
 plt.savefig(image_path)
 print(f'{image_path} saved')
-# -
 
+i += 1
+# -
 
 
 
