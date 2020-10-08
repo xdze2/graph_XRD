@@ -34,7 +34,7 @@ materials = {
     'Cu':   (3.615, 'fcc'),
     'Nb':   (3.3063, 'bcc'),
     'Si':   (5.431194, 'fcc'),
-    'LaB6': (4.15682, 'fcc'), # https://www-s.nist.gov/srmors/certificates/660c.pdf
+    'LaB6': (4.15682, 'cubic'), # https://www-s.nist.gov/srmors/certificates/660c.pdf
     'Al':   (4.046, 'fcc'),
     'Ag':   (4.079, 'fcc')
 }
@@ -97,6 +97,7 @@ def existence_ZincBlende(h, k, l):
 hkl_list_per_struct = {
     'fcc':[ hkl for hkl in all_hkl(n_max=6) if existence_FCC(*hkl) ],
     'bcc':[ hkl for hkl in all_hkl(n_max=6) if existence_BCC(*hkl) ],
+    'cubic':[ hkl for hkl in all_hkl(n_max=6) ]
 }
 
 
